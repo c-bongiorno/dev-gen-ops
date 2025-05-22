@@ -31,10 +31,10 @@ pipeline {
                 script {
                     // Imposta le credenziali Azure per Terraform CLI
                     // Assicurati che questi siano esportati nel PATH di Terraform
-                    bat "export ARM_CLIENT_ID=${AZURE_CLIENT_ID}"
-                    bat "export ARM_CLIENT_SECRET=${AZURE_CLIENT_SECRET}"
-                    bat "export ARM_TENANT_ID=${AZURE_TENANT_ID}"
-                    bat "export ARM_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
+                    bat "set ARM_CLIENT_ID=${AZURE_CLIENT_ID}"
+                    bat "set ARM_CLIENT_SECRET=${AZURE_CLIENT_SECRET}"
+                    bat "set ARM_TENANT_ID=${AZURE_TENANT_ID}"
+                    bat "set ARM_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
 
                     // Checkout del codice dal tuo repository GitHub
                     git branch: 'main', credentialsId: 'github-pat', url: 'https://github.com/c-bongiorno/dev-gen-ops.git' 
