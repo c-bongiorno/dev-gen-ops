@@ -24,7 +24,8 @@ pipeline {
             steps {
                 script {
                     //bat "echo Hello from shell"
-                    curl -V
+                    def curlCheck = bat(script: 'command -v curl >/dev/null 2>&1 && echo "✅ curl is installed" && curl --version || echo "❌ curl is not installed"', returnStdout: true).trim()
+                    echo "Curl Check Result:\n${curlCheck}"
                 }
             }
         }
