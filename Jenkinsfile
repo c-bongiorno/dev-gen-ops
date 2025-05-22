@@ -13,7 +13,7 @@ pipeline {
         //OPENAI_MODEL_DEPLOYMENT_NAME = "gpt-4o-deployment" // 
 
         // Variabili per il backend Terraform (assicurati che lo storage account esista in Azure)
-        TF_BACKEND_SUB = "0d6ce570-7813-445e-bb22-e35faf195918" //SUB
+        //TF_BACKEND_SUB = "0d6ce570-7813-445e-bb22-e35faf195918" //SUB
         TF_BACKEND_RG = "rg-bongiorno-nit-001"      // RG
         TF_BACKEND_SA = "tfstatedevops01" //  SA
         TF_BACKEND_CONTAINER = "tfstatedevgenops"       // Container
@@ -52,7 +52,7 @@ pipeline {
                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                 ]) {
                     script {
-                        bat 'terraform init -no-color -backend-config="subscription_id=${TF_BACKEND_SUB}" -backend-config="resource_group_name=${TF_BACKEND_RG}" -backend-config="storage_account_name=${TF_BACKEND_SA}" -backend-config="container_name=${TF_BACKEND_CONTAINER}" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
+                        bat 'terraform init -upgrade -no-color -backend-config="subscription_id=0d6ce570-7813-445e-bb22-e35faf195918" -backend-config="resource_group_name=${TF_BACKEND_RG}" -backend-config="storage_account_name=${TF_BACKEND_SA}" -backend-config="container_name=${TF_BACKEND_CONTAINER}" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
                         //bat 'terraform validate -no-color'
                         //bat 'terraform fmt -no-color -check'
                    }
