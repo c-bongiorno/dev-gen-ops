@@ -13,8 +13,8 @@ pipeline {
         //OPENAI_MODEL_DEPLOYMENT_NAME = "gpt-4o-deployment" // 
 
         // Variabili per il backend Terraform (assicurati che lo storage account esista in Azure)
-        TF_BACKEND_RG = "rg-bongiorno-nit-001"      // RG
-        TF_BACKEND_SA = "tfstatedevops01" //  SA
+        TF_BACKEND_RG = "ENTRA-TEST"      // RG
+        TF_BACKEND_SA = "testentra" //  SA
         TF_BACKEND_CONTAINER = "tfstatedevgenops"       // Container
     }
 
