@@ -19,6 +19,13 @@ pipeline {
     }
 
     stages {
+        stage('Test'){
+            steps {
+                script {
+                    sh "echo Hello from shell"
+                }
+            }
+        }
         stage('Checkout Code') {
             steps {
                 script {
