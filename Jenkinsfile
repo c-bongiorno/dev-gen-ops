@@ -76,6 +76,21 @@ pipeline {
                     
             }
         }
+        stage('Trivy Full Severity Scan') {
+            steps {
+                script {
+                    echo "Esecuzione Trivy su tutti i livelli di severità: LOW, MEDIUM, HIGH, CRITICAL"
+
+                    def trivyOutput = bat(returnStdout: true, script: 'trivy config --severity LOW,MEDIUM,HIGH,CRITICAL .').trim()
+
+                    echo "---------------------------------------"
+                    echo "Risultato completo della scansione Trivy:\n${trivyOutput}"
+                    echo "---------------------------------------"
+                }
+            }
+        }
+
+        
         stage('Approval for Deployment') {
             steps {
                 input message: 'Approvazione necessaria per il deployment su Azure. Continuare?', ok: 'Deploy'
