@@ -81,7 +81,7 @@ pipeline {
                 input message: 'Approvazione necessaria per il deployment su Azure. Continuare?', ok: 'Deploy'
             }
         }
-        stage('Terraform Plan') {
+        stage('Terraform Apply') {
             steps {
                 withCredentials([
                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
