@@ -53,8 +53,8 @@ pipeline {
                 ]) {
                     script {
                         bat 'terraform init -upgrade -no-color -backend-config="subscription_id=f357b9f3-aeca-4bd9-b1e2-e8a9db3e9374" -backend-config="resource_group_name=ENTRA-TEST" -backend-config="storage_account_name=testentra" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
-                        //bat 'terraform validate -no-color'
-                        //bat 'terraform fmt -no-color -check'
+                        bat 'terraform validate -no-color'
+                        bat 'terraform fmt -no-color'
                    }
                 }
 
@@ -63,7 +63,17 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                bat 'terraform plan -no-color -out=tfplan'
+                withCredentials([
+                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                ]) {
+                    script {
+                        bat 'terraform plan -no-color -out=tfplan.binary'
+                    }
+                }
+                    
             }
         }
     }
