@@ -22,7 +22,7 @@ pipeline {
         stage('Test'){
             steps {
                 script {
-                    sh "echo Hello from shell"
+                    bat "echo Hello from shell"
                 }
             }
         }
