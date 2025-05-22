@@ -31,10 +31,10 @@ pipeline {
                 script {
                     // Imposta le credenziali Azure per Terraform CLI
                     // Assicurati che questi siano esportati nel PATH di Terraform
-                    sh "export ARM_CLIENT_ID=${AZURE_CLIENT_ID}"
-                    sh "export ARM_CLIENT_SECRET=${AZURE_CLIENT_SECRET}"
-                    sh "export ARM_TENANT_ID=${AZURE_TENANT_ID}"
-                    sh "export ARM_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
+                    bat "export ARM_CLIENT_ID=${AZURE_CLIENT_ID}"
+                    bat "export ARM_CLIENT_SECRET=${AZURE_CLIENT_SECRET}"
+                    bat "export ARM_TENANT_ID=${AZURE_TENANT_ID}"
+                    bat "export ARM_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
 
                     // Checkout del codice dal tuo repository GitHub
                     git branch: 'main', credentialsId: 'github-pat', url: 'https://github.com/c-bongiorno/dev-gen-ops.git' 
@@ -45,16 +45,16 @@ pipeline {
         stage('Terraform Init & Validate') {
             steps {
                 script {
-                    sh 'terraform init -backend-config="resource_group_name=${TF_BACKEND_RG}" -backend-config="storage_account_name=${TF_BACKEND_SA}" -backend-config="container_name=${TF_BACKEND_CONTAINER}" -reconfigure' // reconfigure è utile per i test
-                    sh 'terraform validate'
-                    sh 'terraform fmt -check'
+                    bat 'terraform init -backend-config="resource_group_name=${TF_BACKEND_RG}" -backend-config="storage_account_name=${TF_BACKEND_SA}" -backend-config="container_name=${TF_BACKEND_CONTAINER}" -reconfigure' // reconfigure è utile per i test
+                    bat 'terraform validate'
+                    bat 'terraform fmt -check'
                 }
             }
         }
 
         stage('Terraform Plan') {
             steps {
-                sh 'terraform plan -out=tfplan'
+                bat 'terraform plan -out=tfplan'
             }
         }
     }
