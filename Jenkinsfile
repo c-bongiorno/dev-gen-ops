@@ -20,13 +20,14 @@ pipeline {
     }
 
     stages {
-        // stage('Test'){
-            // steps {
-                // script {
-                    // bat "echo Hello from shell"
-                // }
-            // }
-        // }
+        stage('Test'){
+            steps {
+                script {
+                    //bat "echo Hello from shell"
+                    curl -V
+                }
+            }
+        }
         stage('Checkout Code') {
             steps {
                 script {
