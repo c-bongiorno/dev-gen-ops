@@ -24,7 +24,7 @@ pipeline {
             // steps {
                 // script {
                     // bat "echo Hello from shell"
-                    // def curlCheck = sh(script: 'command -v curl >/dev/null 2>&1 && echo "✅ curl is installed" && curl --version || echo "❌ curl is not installed"', returnStdout: true).trim()
+                    // def curlCheck = bat(script: 'command -v curl >/dev/null 2>&1 && echo "✅ curl is installed" && curl --version || echo "❌ curl is not installed"', returnStdout: true).trim()
                     // echo "Curl Check Result:\n${curlCheck}"
                 // }
             // }
@@ -34,10 +34,10 @@ pipeline {
                 script {
                     // Imposta le credenziali Azure per Terraform CLI
                     // Assicurati che questi siano esportati nel PATH di Terraform
-                    sh "set ARM_CLIENT_ID=${AZURE_CLIENT_ID}"
-                    sh "set ARM_CLIENT_SECRET=${AZURE_CLIENT_SECRET}"
-                    sh "set ARM_TENANT_ID=${AZURE_TENANT_ID}"
-                    sh "set ARM_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
+                    bat "set ARM_CLIENT_ID=${AZURE_CLIENT_ID}"
+                    bat "set ARM_CLIENT_SECRET=${AZURE_CLIENT_SECRET}"
+                    bat "set ARM_TENANT_ID=${AZURE_TENANT_ID}"
+                    bat "set ARM_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID}"
 
                     // Checkout del codice dal tuo repository GitHub
                     git branch: 'main', credentialsId: 'github-pat', url: 'https://github.com/c-bongiorno/dev-gen-ops.git' 
@@ -54,9 +54,9 @@ pipeline {
                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                 ]) {
                     script {
-                        sh 'terraform init -upgrade -no-color -backend-config="subscription_id=f357b9f3-aeca-4bd9-b1e2-e8a9db3e9374" -backend-config="resource_group_name=ENTRA-TEST" -backend-config="storage_account_name=testentra" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
-                        sh 'terraform validate -no-color'
-                        sh 'terraform fmt -no-color'
+                        bat 'terraform init -upgrade -no-color -backend-config="subscription_id=f357b9f3-aeca-4bd9-b1e2-e8a9db3e9374" -backend-config="resource_group_name=ENTRA-TEST" -backend-config="storage_account_name=testentra" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
+                        bat 'terraform validate -no-color'
+                        bat 'terraform fmt -no-color'
                    }
                 }
 
