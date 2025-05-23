@@ -14,9 +14,9 @@ pipeline {
 
         // Variabili per il backend Terraform (assicurati che lo storage account esista in Azure)
         //TF_BACKEND_SUB = "0d6ce570-7813-445e-bb22-e35faf195918" //SUB
-        TF_BACKEND_RG = "ENTRA-TEST"      // RG
-        TF_BACKEND_SA = "testentra" //  SA
-        TF_BACKEND_CONTAINER = "tfstatedevgenops"       // Container
+        // TF_BACKEND_RG = "ENTRA-TEST"      // RG
+        // TF_BACKEND_SA = "testentra" //  SA
+        // TF_BACKEND_CONTAINER = "tfstatedevgenops"       // Container
     }
 
     stages {
@@ -54,7 +54,7 @@ pipeline {
                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                 ]) {
                     script {
-                        bat 'terraform init -upgrade -no-color -backend-config="subscription_id=f357b9f3-aeca-4bd9-b1e2-e8a9db3e9374" -backend-config="resource_group_name=ENTRA-TEST" -backend-config="storage_account_name=testentra" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
+                        bat 'terraform init -upgrade -no-color -backend-config="subscription_id=0d6ce570-7813-445e-bb22-e35faf195918" -backend-config="resource_group_name=rg-bongiorno-nit-001" -backend-config="storage_account_name=tfstatedevops01" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
                         bat 'terraform validate -no-color'
                         bat 'terraform fmt -no-color'
                    }
