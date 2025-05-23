@@ -1,5 +1,5 @@
 resource "azurerm_storage_account" "sa" {
-  name                          = "testdevops"
+  name                          = "sastestdevops001"
   resource_group_name           = "rg-bongiorno-nit-001"
   location                      = "italynorth"
   account_tier                  = "Standard"
