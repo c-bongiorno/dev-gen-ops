@@ -54,7 +54,7 @@ pipeline {
                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                 ]) {
                     script {
-                        bat 'terraform init -upgrade -no-color -backend-config="subscription_id=0d6ce570-7813-445e-bb22-e35faf195918" -backend-config="resource_group_name=rg-bongiorno-nit-001" -backend-config="storage_account_name=tfstatedevops01" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true"' // reconfigure è utile per i test
+                        bat 'terraform init -upgrade -no-color -backend-config="subscription_id=0d6ce570-7813-445e-bb22-e35faf195918" -backend-config="resource_group_name=rg-bongiorno-nit-001" -backend-config="storage_account_name=tfstatedevops01" -backend-config="container_name=tfstatedevgenops" -backend-config="key=devgenops.tfstate" -backend-config="use_oidc=true" -reconfigure' // reconfigure è utile per i test
                         bat 'terraform validate -no-color'
                         bat 'terraform fmt -no-color'
                    }
