@@ -10,7 +10,7 @@ resource "azurerm_storage_account" "sa" {
 
 
 resource "azurerm_storage_account" "test-ai" {
-  name                          = "sastestdevops001"
+  name                          = "sastestdevops002"
   resource_group_name           = "rg-bongiorno-nit-001"
   location                      = "italynorth"
   account_tier                  = "TEST"

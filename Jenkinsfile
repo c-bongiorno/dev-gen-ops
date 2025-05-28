@@ -63,21 +63,21 @@ pipeline {
             }
         }
 
-        // stage('Terraform Plan') {
-            // steps {
-                // withCredentials([
-                    // string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-                    // string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-                    // string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                    // string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-                // ]) {
-                    // script {
-                        // bat 'terraform plan -no-color -out=tfplan.binary'
-                    // }
-                // }
-                    // 
-            // }
-        // }
+        stage('Terraform Plan') {
+            steps {
+                withCredentials([
+                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                ]) {
+                    script {
+                        bat 'terraform plan -no-color -out=tfplan.binary'
+                    }
+                }
+                    
+            }
+        }
         stage('Trivy Full Severity Scan') {
             steps {
                 script {
