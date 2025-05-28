@@ -81,6 +81,9 @@ pipeline {
         stage('Terraform PlanAI') {
             steps {
                 script {
+                    // Definisci una variabile per lo stato del comando
+                    def planStatus
+
                     try {
                         withCredentials([
                             string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
@@ -88,38 +91,52 @@ pipeline {
                             string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
                             string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
                         ]) {
-                            script {
-                            bat 'terraform plan -no-color -out=tfplan.binary'
+                            // Esegui il comando e cattura l'output e lo stato di uscita
+                            def planOutput = bat(script: 'terraform plan -no-color -out=tfplan.binary', returnStdout: true, returnStatus: true)
+
+                            // Controlla il codice di uscita
+                            if (planOutput.status != 0) {
+                                // Se il codice è diverso da 0, c'è stato un errore.
+                                // Lanciamo un'eccezione manualmente per attivare il blocco catch.
+                                error("Terraform plan failed with status code: ${planOutput.status}")
+                            } else {
+                                // Se tutto va bene, stampa l'output
+                                echo "Terraform plan completed successfully."
+                                echo planOutput.stdout
+                            }
                         }
-                    }                        
                     } catch (e) {
                         // --- AI per Troubleshooting degli Errori di Deployment ---
-                        def errorLogs = sh(returnStdout: true, script: "cat \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim() // Cattura l'intero 
-                        // Estrai solo le linee di errore rilevanti se il log è molto grande
-                        // def relevantErrorLogs = errorLogs.split('\n').findAll { it.contains('Error') || it.contains('Failed') }.join('\n')
+                        // Ora il blocco catch verrà eseguito correttamente
+
+                        // Cattura l'intero log della build
+                        def errorLogs = sh(returnStdout: true, script: "cat \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim()
 
                         def troubleshootingPrompt = """
                             Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
                             Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
-
                             Log di errore del deployment:
                             ```
                             ${errorLogs}
                             ```
-
                             Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
                         """
-                        def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+
+                        // La chiamata alla tua funzione AI
+                        // def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
                         echo "---------------------------------------"
-                        echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                        // echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                        echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
+                        echo "Log catturato per l'analisi:"
+                        echo errorLogs
                         echo "---------------------------------------"
+
                         error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
                     }
                 }
             }
         }
-    
         stage('Trivy Full Severity Scan') {
             steps {
                 script {
