@@ -123,10 +123,10 @@ pipeline {
                         """
 
                         // La chiamata alla tua funzione AI
-                        // def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+                        def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
                         echo "---------------------------------------"
-                        // echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                        echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
                         echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
                         echo "Log catturato per l'analisi:"
                         echo errorLogs
