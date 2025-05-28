@@ -222,46 +222,56 @@ pipeline {
     }
 }
 
-// Funzione helper per chiamare Azure OpenAI Service
-// Questa è una semplificazione. In produzione useresti un modo più robusto
-// per gestire le chiamate API (gestione errori, retry, timeout).
-@NonCPS // Necessario per operazioni Groovy complesse all'interno di pipeline steps
+// Rimuoviamo @NonCPS perché usiamo step della pipeline (httpRequest, readJSON)
 def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String prompt) {
-    def url = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
-    def headers = [
-        "Content-Type: application/json",
-        "api-key: ${apiKey}"
-    ]
-    def body = """
-    {
-        "messages": [
-            {"role": "system", "content": "You are a helpful and expert assistant for DevOps, Azure, and Terraform."},
-            {"role": "user", "content": "${prompt.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')}"} // Escape the prompt for JSON
+    // L'URL corretto per il modello Chat Completions.
+    // Assicurati che 'endpoint' sia solo il dominio base (es. https://tuo-endpoint.openai.azure.com)
+    def fullUrl = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+
+    // Usiamo le utility Groovy per creare un corpo JSON valido e sicuro.
+    // Questo è molto più affidabile della concatenazione di stringhe manuale.
+    def requestBody = new groovy.json.JsonOutput().toJson([
+        messages: [
+            [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
+            [role: "user", content: prompt]
         ],
-        "max_tokens": 1500, // Aumenta i token massimi per risposte più lunghe
-        "temperature": 0.3 // Bassa temperatura per risposte più precise
-    }
-    """
+        max_tokens: 1500,
+        temperature: 0.3
+    ])
 
-    // DEBUG: Print the payload being sent to OpenAI
-    // echo "OpenAI Request Body: ${body}"
+    try {
+        // Eseguiamo la chiamata con il plugin httpRequest, che è platform-independent
+        def response = httpRequest(
+            url: fullUrl,
+            method: 'POST',
+            httpMode: 'HTTP',
+            customHeaders: [
+                [name: 'Content-Type', value: 'application/json'],
+                [name: 'Api-Key', value: apiKey]
+            ],
+            requestBody: requestBody,
+            quiet: true // Evita di stampare l'intera risposta nel log di console
+        )
 
-    def response = sh(returnStdout: true, script: """
-        curl -X POST "${url}" \\
-        -H "Content-Type: application/json" \\
-        -H "api-key: ${apiKey}" \\
-        -d \$'${body}'
-    """)
+        // Verifichiamo che la chiamata sia andata a buon fine (status 2xx)
+        if (response.status == 200) {
+            // Usiamo lo step 'readJSON' per parsare la risposta testuale
+            def jsonResponse = readJSON text: response.content
+            
+            // Estraiamo il contenuto del messaggio dalla risposta
+            if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
+                return jsonResponse.choices[0].message.content
+            } else {
+                echo "Errore: la risposta JSON da Azure OpenAI non ha il formato atteso. Risposta: ${response.content}"
+                return "Errore AI: Impossibile analizzare il contenuto della risposta."
+            }
+        } else {
+            echo "Errore HTTP dalla chiamata ad Azure OpenAI. Status: ${response.status}, Risposta: ${response.content}"
+            return "Errore AI: La richiesta è fallita con codice di stato ${response.status}."
+        }
 
-    // Parse the JSON response
-    def jsonResponse = readJSON text: response
-    if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
-        return jsonResponse.choices[0].message.content
-    } else {
-        echo "Error: Unexpected response from Azure OpenAI: ${response}"
-        return "AI response error: Could not parse content."
+    } catch (Exception e) {
+        echo "Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}"
+        return "Errore AI: Eccezione durante la chiamata API."
     }
 }
-
-            
-            
