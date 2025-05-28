@@ -121,18 +121,23 @@ pipeline {
                             ```
                             Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
                         """
+                        withCredentials([
+                            string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AZURE_OPENAI_ENDPOINT'),
+                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AZURE_OPENAI_API_KEY'),
+                            string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'OPENAI_MODEL_DEPLOYMENT_NAME')
+                        ]) {
+                            // La chiamata alla tua funzione AI
+                            def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
-                        // La chiamata alla tua funzione AI
-                        def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
-
-                        echo "---------------------------------------"
-                        echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
-                        echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
-                        echo "Log catturato per l'analisi:"
-                        echo errorLogs
-                        echo "---------------------------------------"
-
+                            echo "---------------------------------------"
+                            echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                            echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
+                            echo "Log catturato per l'analisi:"
+                            echo errorLogs
+                            echo "---------------------------------------"
+                        }
                         error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
+
                     }
                 }
             }
