@@ -110,7 +110,7 @@ pipeline {
                         // Ora il blocco catch verrà eseguito correttamente
 
                         // Cattura l'intero log della build
-                        def errorLogs = bat(returnStdout: true, script: "Get-Content \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim()
+                        def errorLogs = bat(returnStdout: true, script: "type \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim()
 
                         def troubleshootingPrompt = """
                             Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
