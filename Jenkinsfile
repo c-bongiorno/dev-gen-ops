@@ -113,6 +113,89 @@ pipeline {
 
             }
         }
+        stage('Terraform Apply') {
+            steps {
+                script {
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                            string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                            string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                            string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                        ]) {
+                            script {
+                            bat 'terraform apply -no-color -auto-approve tfplan.binary'
+                            echo "Deployment su Azure completato con successo!"
+                        }
+                    }                        
+                    } catch (e) {
+                        // --- AI per Troubleshooting degli Errori di Deployment ---
+                        def errorLogs = sh(returnStdout: true, script: "cat \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim() // Cattura l'intero log della build
+                        // Estrai solo le linee di errore rilevanti se il log è molto grande
+                        // def relevantErrorLogs = errorLogs.split('\n').findAll { it.contains('Error') || it.contains('Failed') }.join('\n')
+
+                        def troubleshootingPrompt = """
+                            Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
+                            Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
+
+                            Log di errore del deployment:
+                            ```
+                            ${errorLogs}
+                            ```
+
+                            Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
+                        """
+                        def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+
+                        echo "---------------------------------------"
+                        echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                        echo "---------------------------------------"
+                        error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Funzione helper per chiamare Azure OpenAI Service
+// Questa è una semplificazione. In produzione useresti un modo più robusto
+// per gestire le chiamate API (gestione errori, retry, timeout).
+@NonCPS // Necessario per operazioni Groovy complesse all'interno di pipeline steps
+def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String prompt) {
+    def url = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+    def headers = [
+        "Content-Type: application/json",
+        "api-key: ${apiKey}"
+    ]
+    def body = """
+    {
+        "messages": [
+            {"role": "system", "content": "You are a helpful and expert assistant for DevOps, Azure, and Terraform."},
+            {"role": "user", "content": "${prompt.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n')}"} // Escape the prompt for JSON
+        ],
+        "max_tokens": 1500, // Aumenta i token massimi per risposte più lunghe
+        "temperature": 0.3 // Bassa temperatura per risposte più precise
+    }
+    """
+
+    // DEBUG: Print the payload being sent to OpenAI
+    // echo "OpenAI Request Body: ${body}"
+
+    def response = sh(returnStdout: true, script: """
+        curl -X POST "${url}" \\
+        -H "Content-Type: application/json" \\
+        -H "api-key: ${apiKey}" \\
+        -d \$'${body}'
+    """)
+
+    // Parse the JSON response
+    def jsonResponse = readJSON text: response
+    if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
+        return jsonResponse.choices[0].message.content
+    } else {
+        echo "Error: Unexpected response from Azure OpenAI: ${response}"
+        return "AI response error: Could not parse content."
     }
 }
 

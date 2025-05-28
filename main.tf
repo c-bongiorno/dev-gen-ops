@@ -7,3 +7,14 @@ resource "azurerm_storage_account" "sa" {
   public_network_access_enabled = true
   https_traffic_only_enabled    = false
 }
+
+
+resource "azurerm_storage_account" "test-ai" {
+  name                          = "sastestdevops001"
+  resource_group_name           = "rg-bongiorno-nit-001"
+  location                      = "italynorth"
+  account_tier                  = "TEST"
+  account_replication_type      = "LRS"
+  public_network_access_enabled = true
+  https_traffic_only_enabled    = false
+}
