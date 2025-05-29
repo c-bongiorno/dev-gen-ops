@@ -8,15 +8,6 @@ pipeline {
         AZURE_CLIENT_SECRET = credentials('AZURE_CLIENT_SECRET')
         AZURE_TENANT_ID = credentials('AZURE_TENANT_ID')
         AZURE_SUBSCRIPTION_ID = credentials('AZURE_SUBSCRIPTION_ID')
-
-        // Nome del deploy del modello OpenAI (es. "gpt-4o-deployment")
-        //OPENAI_MODEL_DEPLOYMENT_NAME = "gpt-4o-deployment" // 
-
-        // Variabili per il backend Terraform (assicurati che lo storage account esista in Azure)
-        //TF_BACKEND_SUB = "0d6ce570-7813-445e-bb22-e35faf195918" //SUB
-        // TF_BACKEND_RG = "ENTRA-TEST"      // RG
-        // TF_BACKEND_SA = "testentra" //  SA
-        // TF_BACKEND_CONTAINER = "tfstatedevgenops"       // Container
     }
 
     stages {
@@ -62,22 +53,6 @@ pipeline {
 
             }
         }
-
-        // stage('Terraform Plan') {
-            // steps {
-                // withCredentials([
-                    // string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-                    // string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-                    // string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                    // string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-                // ]) {
-                    // script {
-                        // bat 'terraform plan -no-color -out=tfplan.binary'
-                    // }
-                // }
-                    // 
-            // }
-        // }
         // stage('!!! DEBUG SICURO AZURE AI CALL !!!') {
         //     steps {
         //         script {
@@ -177,12 +152,15 @@ pipeline {
                             // La chiamata alla tua funzione AI
                             def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
-                            echo '---------------------------------------'
-                            echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
-                            echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
-                            echo "Log catturato per l'analisi:"
-                            echo errorLogs
-                            echo '---------------------------------------'
+                            def formattedResponse = formatAIResponse(aiTroubleshooting)
+                            echo formattedResponse
+
+                            // echo '---------------------------------------'
+                            // echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
+                            // echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
+                            // echo "Log catturato per l'analisi:"
+                            // echo errorLogs
+                            // echo '---------------------------------------'
                         }
                         error 'Deployment fallito. Vedi i suggerimenti AI per il troubleshooting.'
 
@@ -202,9 +180,7 @@ pipeline {
         //             echo "---------------------------------------"
         //         }
         //     }
-        // }
-
-        
+        // }       
         stage('Approval for Deployment') {
             steps {
                 input message: 'Approvazione necessaria per il deployment su Azure. Continuare?', ok: 'Deploy'
@@ -224,48 +200,6 @@ pipeline {
                 }
             }
         }
-        // stage('Terraform Apply') {
-            // steps {
-                // script {
-                    // try {
-                        // withCredentials([
-                            // string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-                            // string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-                            // string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                            // string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-                        // ]) {
-                            // script {
-                            // bat 'terraform apply -no-color -auto-approve tfplan.binary'
-                            // echo "Deployment su Azure completato con successo!"
-                        // }
-                    // }                        
-                    // } catch (e) {
-                        //--- AI per Troubleshooting degli Errori di Deployment ---
-                        // def errorLogs = sh(returnStdout: true, script: "cat \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim() // Cattura l'intero log della build
-                        //Estrai solo le linee di errore rilevanti se il log è molto grande
-                        //def relevantErrorLogs = errorLogs.split('\n').findAll { it.contains('Error') || it.contains('Failed') }.join('\n')
-
-                        // def troubleshootingPrompt = """
-                            // Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
-                            // Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
-
-                            // Log di errore del deployment:
-                            // ```
-                            // ${errorLogs}
-                            // ```
-
-                            // Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
-                        // """
-                        // def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
-
-                        // echo "---------------------------------------"
-                        // echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
-                        // echo "---------------------------------------"
-                        // error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
-                    // }
-                // }
-            // }
-        // }
     }
 }
 
@@ -338,4 +272,22 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
         echo 'Pulizia del file temporaneo payload.json...'
         deleteDir() // Cancella tutti i file nella directory corrente (inclusi payload.json se esiste)
     }
+}
+
+// Aggiungi questa funzione per formattare l'output
+def formatAIResponse(String response) {
+    def separator = "=" * 80
+    def subSeparator = "-" * 40
+    
+    return """
+${separator}
+🤖 AI TROUBLESHOOTING ANALYSIS
+${separator}
+
+${response}
+
+${separator}
+END OF AI ANALYSIS
+${separator}
+    """.trim()
 }
