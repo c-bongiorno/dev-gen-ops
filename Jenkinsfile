@@ -114,10 +114,11 @@ pipeline {
                                 -H "api-key: %API_KEY_ENV_VAR%" ^
                                 -d "{\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Test 2: Chiamata con curl dall'agente Jenkins!\\\"}]}"
                             """
-                            def curlResult = bat(returnStdout: true, returnStatus: true, script: curlCommand)
-                            echo "Risultato del curl dall'agente:"
-                            echo "Status Code (uscita comando): ${curlResult.status}"
-                            echo "Output (stdout): ${curlResult.stdout}"
+                            def curlExitCode = bat(script: curlCommand, returnStatus: true)
+                            echo "Codice di uscita del comando curl: ${curlExitCode}"
+                            if (curlExitCode == 0) {
+                                echo "SUCCESSO: Il comando curl è terminato correttamente."
+                            }
                         }
                     }
                     // Facciamo fallire lo stage per poter analizzare i log con calma
