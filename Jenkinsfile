@@ -129,36 +129,51 @@ pipeline {
                             }
                         }
                     } catch (e) {
-                        def errorLogs = bat(returnStdout: true, script: 'type "%JENKINS_HOME%\\jobs\\%JOB_NAME%\\builds\\%BUILD_NUMBER%\\log"').trim()
+                        echo "🚨 Terraform Plan fallito - Avvio analisi AI..."
+                        
+                        // Cattura log più specifici
+                        def errorLogs
+                        try {
+                            errorLogs = bat(returnStdout: true, script: 'type "%JENKINS_HOME%\\jobs\\%JOB_NAME%\\builds\\%BUILD_NUMBER%\\log"').trim()
+                        } catch (logError) {
+                            echo "⚠️ Impossibile leggere i log completi, uso l'errore corrente"
+                            errorLogs = e.toString()
+                        }
                         
                         def troubleshootingPrompt = """
-                        Sei un esperto ingegnere DevOps. 
-                        Analizza questo errore Terraform su Azure e fornisci una soluzione strutturata.
-                        
-                        Usa questo formato:
-                        **Problema:** [descrizione breve]
-                        **Causa Probabile:** [analisi della causa]  
-                        **Soluzione:**
-                        1. [primo passo]
-                        2. [secondo passo]
-                        3. [terzo passo]
-                        
-                        Log errore:
-                        ${errorLogs}
+                    Sei un esperto DevOps specializzato in Terraform e Azure.
+                    Analizza questo errore e fornisci una soluzione chiara e strutturata.
+
+                    Usa ESATTAMENTE questo formato nella risposta:
+
+                    **Problema:**
+                    [Descrizione breve del problema]
+
+                    **Causa Probabile:**
+                    [Analisi della causa principale]
+
+                    **Soluzione:**
+                    1. [Primo passo specifico]
+                    2. [Secondo passo specifico]  
+                    3. [Terzo passo se necessario]
+
+                    **Prevenzione:**
+                    [Come evitare il problema in futuro]
+
+                    Log di errore:
+                    ${errorLogs.take(3000)}
                         """.trim()
-                        
+
                         withCredentials([
                             string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AI_ENDPOINT'),
-                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),
+                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),  
                             string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'AI_MODEL_DEPLOYMENT_NAME')
                         ]) {
                             def aiAnalysis = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
-                            
-                            // Ora l'output sarà formattato e leggibile!
                             echo aiAnalysis
                         }
                         
-                        error 'Deployment fallito. Vedi l\'analisi AI qui sopra.'
+                        error 'Deployment fallito. Consulta l\'analisi AI qui sopra per la risoluzione.'
                     }
 
                     // } catch (e) {
@@ -233,112 +248,138 @@ pipeline {
     }
 }
 
-// Sostituisci la tua funzione callAzureOpenAI esistente con questa versione corretta
+// Sostituisci completamente la funzione callAzureOpenAI con questa versione
 def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String promptText) {
     try {
-        def requestBody = new groovy.json.JsonBuilder([
+        // 1. Costruisci il JSON della richiesta
+        def requestBody = groovy.json.JsonOutput.toJson([
             messages: [
                 [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
                 [role: "user", content: promptText]
             ],
             max_tokens: 1500,
             temperature: 0.3
-        ]).toString()
+        ])
 
+        // 2. Scrivi il payload su file
         writeFile(file: 'payload.json', text: requestBody, encoding: 'UTF-8')
 
+        // 3. Esegui la chiamata curl
         withEnv(["API_KEY_ENV_VAR=${apiKey}"]) {
-            def curlCommand = """
-                curl -s -X POST "${endpoint}" ^
-                -H "Content-Type: application/json" ^
-                -H "api-key: %API_KEY_ENV_VAR%" ^
-                -d @payload.json
-            """
-
+            def curlCommand = """curl -s -X POST "${endpoint}" -H "Content-Type: application/json" -H "api-key: %API_KEY_ENV_VAR%" -d @payload.json"""
+            
+            echo "🔄 Chiamata in corso ad Azure OpenAI..."
             def responseText = bat(script: curlCommand, returnStdout: true).trim()
 
+            // 4. Debug: mostra la risposta grezza (temporaneo)
+            echo "📥 Risposta ricevuta (primi 200 caratteri): ${responseText.take(200)}..."
+
             if (responseText.isEmpty()) {
-                return "Errore AI: Nessuna risposta dal server."
+                return "❌ Errore: Nessuna risposta dal server Azure OpenAI"
             }
 
+            // 5. Parsing JSON più robusto
             try {
-                def jsonResponse = readJSON text: responseText
+                // Usa JsonSlurper invece di readJSON per maggiore flessibilità
+                def jsonSlurper = new groovy.json.JsonSlurper()
+                def jsonResponse = jsonSlurper.parseText(responseText)
                 
-                // PARSING CORRETTO: Estrai il contenuto dal JSON
-                if (jsonResponse.choices && jsonResponse.choices[0] && 
-                    jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
+                // 6. Estrai il contenuto dell'AI
+                if (jsonResponse.choices && 
+                    jsonResponse.choices.size() > 0 && 
+                    jsonResponse.choices[0].message && 
+                    jsonResponse.choices[0].message.content) {
                     
                     def aiContent = jsonResponse.choices[0].message.content
+                    echo "✅ Contenuto AI estratto con successo (${aiContent.length()} caratteri)"
                     
-                    // Formatta e restituisci solo il contenuto pulito
-                    return formatAIContent(aiContent)
+                    return formatAIResponse(aiContent)
                     
                 } else if (jsonResponse.error) {
-                    return "Errore AI: ${jsonResponse.error.message}"
+                    echo "❌ Errore dall'API Azure: ${jsonResponse.error}"
+                    return "🚨 Errore Azure OpenAI: ${jsonResponse.error.message ?: jsonResponse.error}"
+                    
                 } else {
-                    return "Errore AI: Formato risposta non valido."
+                    echo "❌ Struttura JSON non riconosciuta. Keys disponibili: ${jsonResponse.keySet()}"
+                    return "🚨 Errore: Risposta API in formato non previsto"
                 }
-            } catch (jsonError) {
-                return "Errore AI: Impossibile analizzare la risposta JSON."
+                
+            } catch (groovy.json.JsonException jsonError) {
+                echo "❌ Errore parsing JSON: ${jsonError.getMessage()}"
+                echo "📄 Risposta completa che ha causato l'errore:"
+                echo responseText
+                return "🚨 Errore: Risposta non è un JSON valido - ${jsonError.getMessage()}"
+                
+            } catch (Exception parseError) {
+                echo "❌ Errore generico nel parsing: ${parseError.getMessage()}"
+                return "🚨 Errore nell'elaborazione della risposta: ${parseError.getMessage()}"
             }
         }
-    } catch (e) {
-        return "Errore AI: ${e.toString()}"
+        
+    } catch (Exception e) {
+        echo "❌ Errore generale nella funzione callAzureOpenAI: ${e.getMessage()}"
+        return "🚨 Errore interno: ${e.getMessage()}"
+        
     } finally {
-        bat(script: 'if exist payload.json del payload.json', returnStatus: true)
+        // 7. Pulizia file temporaneo
+        try {
+            bat(script: 'if exist payload.json del payload.json', returnStatus: true)
+        } catch (Exception cleanupError) {
+            echo "⚠️ Errore nella pulizia file: ${cleanupError.getMessage()}"
+        }
     }
 }
 
-// Nuova funzione per formattare il contenuto AI in modo leggibile
-def formatAIContent(String content) {
-    def lines = content.split('\n')
-    def formattedOutput = []
+// Funzione di formattazione semplificata e funzionante
+def formatAIResponse(String content) {
+    if (!content || content.trim().isEmpty()) {
+        return "⚠️ Contenuto AI vuoto o non valido"
+    }
     
-    // Header principale
-    formattedOutput.add("=" * 100)
-    formattedOutput.add("🤖 AI TROUBLESHOOTING ANALYSIS")
-    formattedOutput.add("=" * 100)
-    formattedOutput.add("")
+    def separator = "=" * 80
+    def result = new StringBuilder()
     
-    lines.each { line ->
-        def trimmedLine = line.trim()
+    result.append("\n${separator}\n")
+    result.append("🤖 AI TROUBLESHOOTING ANALYSIS\n")
+    result.append("${separator}\n\n")
+    
+    // Processa il contenuto riga per riga
+    content.split('\n').each { line ->
+        def trimmed = line.trim()
         
-        if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
-            // Titoli in grassetto (markdown) -> converti in formato console
-            def title = trimmedLine.replaceAll('\\*\\*', '').toUpperCase()
-            formattedOutput.add("")
-            formattedOutput.add("🔍 " + title)
-            formattedOutput.add("-" * (title.length() + 4))
+        if (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.length() > 4) {
+            // Titoli in grassetto
+            def title = trimmed.replaceAll('\\*\\*', '').trim()
+            result.append("🔍 ${title}\n")
+            result.append("${'-' * (title.length() + 4)}\n")
             
-        } else if (trimmedLine.startsWith('- **') && trimmedLine.contains(':**')) {
-            // Sottotitoli con descrizione
-            def cleanLine = trimmedLine.replaceAll('\\*\\*', '').replaceAll('^- ', '')
-            formattedOutput.add("")
-            formattedOutput.add("   ▶ " + cleanLine)
+        } else if (trimmed.startsWith('**') && trimmed.contains(':**')) {
+            // Sottotitoli con due punti
+            def subtitle = trimmed.replaceAll('\\*\\*', '').trim()
+            result.append("\n▶ ${subtitle}\n")
             
-        } else if (trimmedLine.startsWith('1.') || trimmedLine.startsWith('2.') || 
-                   trimmedLine.startsWith('3.') || trimmedLine.startsWith('4.')) {
-            // Punti numerati
-            formattedOutput.add("")
-            formattedOutput.add("   " + trimmedLine)
+        } else if (trimmed.matches('^\\d+\\..*')) {
+            // Liste numerate
+            result.append("   ${trimmed}\n")
             
-        } else if (trimmedLine.startsWith('-')) {
-            // Punti elenco
-            formattedOutput.add("     • " + trimmedLine.substring(1).trim())
+        } else if (trimmed.startsWith('- ')) {
+            // Liste puntate
+            result.append("   • ${trimmed.substring(2)}\n")
             
-        } else if (!trimmedLine.isEmpty()) {
+        } else if (!trimmed.isEmpty()) {
             // Testo normale
-            formattedOutput.add("   " + trimmedLine)
+            result.append("   ${trimmed}\n")
+        } else {
+            // Righe vuote
+            result.append("\n")
         }
     }
     
-    // Footer
-    formattedOutput.add("")
-    formattedOutput.add("=" * 100)
-    formattedOutput.add("END OF AI ANALYSIS")
-    formattedOutput.add("=" * 100)
+    result.append("\n${separator}\n")
+    result.append("✅ END OF AI ANALYSIS\n")
+    result.append("${separator}\n")
     
-    return formattedOutput.join('\n')
+    return result.toString()
 }
 
 
