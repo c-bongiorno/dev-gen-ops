@@ -109,7 +109,7 @@ pipeline {
                         withEnv(["API_KEY_ENV_VAR=${debugApiKey}"]) {
                             // Costruiamo il comando curl per Windows
                             def curlCommand = """
-                                curl -k -v "${hardcodedEndpoint}/openai/deployments/${hardcodedDeployment}/chat/completions?api-version=2024-02-01" ^
+                                curl -v "${hardcodedEndpoint}" ^
                                 -H "Content-Type: application/json" ^
                                 -H "api-key: %API_KEY_ENV_VAR%" ^
                                 -d "{\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Test 2: Chiamata con curl dall'agente Jenkins!\\\"}]}"
