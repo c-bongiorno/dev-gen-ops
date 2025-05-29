@@ -129,14 +129,14 @@ pipeline {
                             // La chiamata alla tua funzione AI
                             def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
-                            echo "---------------------------------------"
-                            echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                            echo '---------------------------------------'
+                            echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
                             echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
                             echo "Log catturato per l'analisi:"
                             echo errorLogs
-                            echo "---------------------------------------"
+                            echo '---------------------------------------'
                         }
-                        error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
+                        error 'Deployment fallito. Vedi i suggerimenti AI per il troubleshooting.'
 
                     }
                 }
