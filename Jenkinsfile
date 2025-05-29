@@ -260,16 +260,16 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
             if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
                 return jsonResponse.choices[0].message.content
             } else {
-                echo "Errore: la risposta JSON da Azure OpenAI non ha il formato atteso. Risposta: ${response.content}"
-                return "Errore AI: Impossibile analizzare il contenuto della risposta."
+                echo 'Errore: la risposta JSON da Azure OpenAI non ha il formato atteso. Risposta: ${response.content}'
+                return 'Errore AI: Impossibile analizzare il contenuto della risposta.'
             }
         } else {
-            echo "Errore HTTP dalla chiamata ad Azure OpenAI. Status: ${response.status}, Risposta: ${response.content}"
-            return "Errore AI: La richiesta è fallita con codice di stato ${response.status}."
+            echo 'Errore HTTP dalla chiamata ad Azure OpenAI. Status: ${response.status}, Risposta: ${response.content}'
+            return 'Errore AI: La richiesta è fallita con codice di stato ${response.status}.'
         }
 
     } catch (Exception e) {
-        echo "Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}"
-        return "Errore AI: Eccezione durante la chiamata API."
+        echo 'Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}'
+        return 'Errore AI: Eccezione durante la chiamata API.'
     }
 }
