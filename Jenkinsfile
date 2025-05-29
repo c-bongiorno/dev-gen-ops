@@ -248,7 +248,6 @@ pipeline {
     }
 }
 
-// Sostituisci completamente la funzione callAzureOpenAI con questa versione
 def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String promptText) {
     try {
         // 1. Costruisci il JSON della richiesta
@@ -261,126 +260,145 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
             temperature: 0.3
         ])
 
-        // 2. Scrivi il payload su file
-        writeFile(file: 'payload.json', text: requestBody, encoding: 'UTF-8')
+        // 2. Scrivi il payload su file con encoding corretto
+        writeFile(file: 'ai_payload.json', text: requestBody, encoding: 'UTF-8')
 
-        // 3. Esegui la chiamata curl
-        withEnv(["API_KEY_ENV_VAR=${apiKey}"]) {
-            def curlCommand = """curl -s -X POST "${endpoint}" -H "Content-Type: application/json" -H "api-key: %API_KEY_ENV_VAR%" -d @payload.json"""
-            
-            echo "🔄 Chiamata in corso ad Azure OpenAI..."
-            def responseText = bat(script: curlCommand, returnStdout: true).trim()
+        // 3. Crea un file batch temporaneo per curl (soluzione Windows)
+        def batchContent = """@echo off
+                            set API_KEY=${apiKey}
+                            curl -s -X POST "${endpoint}" -H "Content-Type: application/json" -H "api-key: %API_KEY%" -d @ai_payload.json > ai_response.json 2>ai_error.log
+                        """
+        writeFile(file: 'call_ai.bat', text: batchContent, encoding: 'UTF-8')
 
-            // 4. Debug: mostra la risposta grezza (temporaneo)
-            echo "📥 Risposta ricevuta (primi 200 caratteri): ${responseText.take(200)}..."
-
-            if (responseText.isEmpty()) {
-                return "❌ Errore: Nessuna risposta dal server Azure OpenAI"
-            }
-
-            // 5. Parsing JSON più robusto
+        // 4. Esegui il file batch
+        echo "🔄 Chiamata in corso ad Azure OpenAI..."
+        def exitCode = bat(script: 'call call_ai.bat', returnStatus: true)
+        
+        if (exitCode != 0) {
+            def errorOutput = ""
             try {
-                // Usa JsonSlurper invece di readJSON per maggiore flessibilità
-                def jsonSlurper = new groovy.json.JsonSlurper()
-                def jsonResponse = jsonSlurper.parseText(responseText)
-                
-                // 6. Estrai il contenuto dell'AI
-                if (jsonResponse.choices && 
-                    jsonResponse.choices.size() > 0 && 
-                    jsonResponse.choices[0].message && 
-                    jsonResponse.choices[0].message.content) {
-                    
-                    def aiContent = jsonResponse.choices[0].message.content
-                    echo "✅ Contenuto AI estratto con successo (${aiContent.length()} caratteri)"
-                    
-                    return formatAIResponse(aiContent)
-                    
-                } else if (jsonResponse.error) {
-                    echo "❌ Errore dall'API Azure: ${jsonResponse.error}"
-                    return "🚨 Errore Azure OpenAI: ${jsonResponse.error.message ?: jsonResponse.error}"
-                    
-                } else {
-                    echo "❌ Struttura JSON non riconosciuta. Keys disponibili: ${jsonResponse.keySet()}"
-                    return "🚨 Errore: Risposta API in formato non previsto"
-                }
-                
-            } catch (groovy.json.JsonException jsonError) {
-                echo "❌ Errore parsing JSON: ${jsonError.getMessage()}"
-                echo "📄 Risposta completa che ha causato l'errore:"
-                echo responseText
-                return "🚨 Errore: Risposta non è un JSON valido - ${jsonError.getMessage()}"
-                
-            } catch (Exception parseError) {
-                echo "❌ Errore generico nel parsing: ${parseError.getMessage()}"
-                return "🚨 Errore nell'elaborazione della risposta: ${parseError.getMessage()}"
+                errorOutput = readFile('ai_error.log').trim()
+            } catch (Exception e) {
+                errorOutput = "Impossibile leggere il file di errore"
             }
+            echo "❌ Curl fallito con codice: ${exitCode}"
+            echo "❌ Errore: ${errorOutput}"
+            return "🚨 Errore nella chiamata API: ${errorOutput}"
+        }
+
+        // 5. Leggi la risposta dal file
+        def responseText
+        try {
+            responseText = readFile('ai_response.json').trim()
+        } catch (Exception e) {
+            echo "❌ Impossibile leggere il file di risposta"
+            return "🚨 Errore: Impossibile leggere la risposta dell'API"
+        }
+
+        // 6. Debug della risposta
+        echo "📥 Primi 100 caratteri della risposta: '${responseText.take(100)}'"
+        echo "📊 Lunghezza totale risposta: ${responseText.length()} caratteri"
+
+        if (responseText.isEmpty()) {
+            return "❌ Errore: Risposta vuota dal server Azure OpenAI"
+        }
+
+        // 7. Verifica che inizi con { (JSON valido)
+        if (!responseText.startsWith('{')) {
+            echo "❌ La risposta non è un JSON valido. Contenuto completo:"
+            echo responseText
+            return "🚨 Errore: La risposta non è in formato JSON valido"
+        }
+
+        // 8. Parsing JSON
+        try {
+            def jsonSlurper = new groovy.json.JsonSlurper()
+            def jsonResponse = jsonSlurper.parseText(responseText)
+            
+            if (jsonResponse.choices && 
+                jsonResponse.choices.size() > 0 && 
+                jsonResponse.choices[0].message && 
+                jsonResponse.choices[0].message.content) {
+                
+                def aiContent = jsonResponse.choices[0].message.content
+                echo "✅ Contenuto AI estratto con successo"
+                
+                return formatAIResponse(aiContent)
+                
+            } else if (jsonResponse.error) {
+                return "🚨 Errore Azure OpenAI: ${jsonResponse.error.message ?: jsonResponse.error}"
+                
+            } else {
+                echo "❌ Struttura JSON imprevista. Keys: ${jsonResponse.keySet()}"
+                return "🚨 Errore: Struttura risposta API non riconosciuta"
+            }
+            
+        } catch (Exception jsonError) {
+            echo "❌ Errore parsing JSON: ${jsonError.getMessage()}"
+            echo "📄 Contenuto che ha causato l'errore (primi 500 caratteri):"
+            echo responseText.take(500)
+            return "🚨 Errore JSON: ${jsonError.getMessage()}"
         }
         
     } catch (Exception e) {
-        echo "❌ Errore generale nella funzione callAzureOpenAI: ${e.getMessage()}"
+        echo "❌ Errore generale: ${e.getMessage()}"
+        e.printStackTrace()
         return "🚨 Errore interno: ${e.getMessage()}"
         
     } finally {
-        // 7. Pulizia file temporaneo
+        // 9. Pulizia file temporanei
         try {
-            bat(script: 'if exist payload.json del payload.json', returnStatus: true)
+            bat(script: '''
+                if exist ai_payload.json del ai_payload.json
+                if exist ai_response.json del ai_response.json  
+                if exist ai_error.log del ai_error.log
+                if exist call_ai.bat del call_ai.bat
+            ''', returnStatus: true)
         } catch (Exception cleanupError) {
-            echo "⚠️ Errore nella pulizia file: ${cleanupError.getMessage()}"
+            echo "⚠️ Errore pulizia: ${cleanupError.getMessage()}"
         }
     }
 }
 
-// Funzione di formattazione semplificata e funzionante
+// Funzione di formattazione semplificata
 def formatAIResponse(String content) {
     if (!content || content.trim().isEmpty()) {
-        return "⚠️ Contenuto AI vuoto o non valido"
+        return "⚠️ Contenuto AI vuoto"
     }
     
-    def separator = "=" * 80
-    def result = new StringBuilder()
+    def lines = content.split('\n')
+    def result = []
     
-    result.append("\n${separator}\n")
-    result.append("🤖 AI TROUBLESHOOTING ANALYSIS\n")
-    result.append("${separator}\n\n")
+    result.add("╔" + "═" * 78 + "╗")
+    result.add("║" + " " * 25 + "🤖 AI ANALYSIS" + " " * 25 + "║")  
+    result.add("╚" + "═" * 78 + "╝")
+    result.add("")
     
-    // Processa il contenuto riga per riga
-    content.split('\n').each { line ->
+    lines.each { line ->
         def trimmed = line.trim()
-        
-        if (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.length() > 4) {
-            // Titoli in grassetto
-            def title = trimmed.replaceAll('\\*\\*', '').trim()
-            result.append("🔍 ${title}\n")
-            result.append("${'-' * (title.length() + 4)}\n")
-            
-        } else if (trimmed.startsWith('**') && trimmed.contains(':**')) {
-            // Sottotitoli con due punti
-            def subtitle = trimmed.replaceAll('\\*\\*', '').trim()
-            result.append("\n▶ ${subtitle}\n")
-            
+        if (trimmed.startsWith('**') && trimmed.endsWith('**')) {
+            def title = trimmed.replaceAll('\\*\\*', '')
+            result.add("🔍 " + title.toUpperCase())
+            result.add("   " + "─" * title.length())
+        } else if (trimmed.startsWith('**') && trimmed.contains(':')) {
+            def title = trimmed.replaceAll('\\*\\*', '')
+            result.add("")
+            result.add("▶ " + title)
         } else if (trimmed.matches('^\\d+\\..*')) {
-            // Liste numerate
-            result.append("   ${trimmed}\n")
-            
+            result.add("   " + trimmed)
         } else if (trimmed.startsWith('- ')) {
-            // Liste puntate
-            result.append("   • ${trimmed.substring(2)}\n")
-            
+            result.add("   • " + trimmed.substring(2))
         } else if (!trimmed.isEmpty()) {
-            // Testo normale
-            result.append("   ${trimmed}\n")
-        } else {
-            // Righe vuote
-            result.append("\n")
+            result.add("   " + trimmed)
         }
     }
     
-    result.append("\n${separator}\n")
-    result.append("✅ END OF AI ANALYSIS\n")
-    result.append("${separator}\n")
+    result.add("")
+    result.add("═" * 80)
     
-    return result.toString()
+    return result.join('\n')
 }
+
 
 
 
