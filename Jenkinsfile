@@ -269,7 +269,7 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
         }
 
     } catch (Exception e) {
-        echo 'Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}'
+        echo "Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}"
         return 'Errore AI: Eccezione durante la chiamata API.'
     }
 }
