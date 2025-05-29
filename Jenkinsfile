@@ -78,83 +78,130 @@ pipeline {
                     // 
             // }
         // }
-        stage('Terraform PlanAI') {
+        stage('!!! DEBUG SICURO AZURE AI CALL !!!') {
             steps {
                 script {
-                    // Definisci una variabile per lo stato del comando
-                    def planStatus
+                    echo '--- ESEGUO TEST DI LABORATORIO SICURO ---'
 
-                    try {
-                        withCredentials([
-                            string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-                            string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-                            string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                            string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-                        ]) {
-                            // Esegui il comando e cattura l'output e lo stato di uscita
-                            def planOutput = bat(script: 'terraform plan -no-color -out=tfplan.binary', returnStdout: true, returnStatus: true)
+                    // Usa i valori non-segreti del tuo curl che funziona.
+                    // Questi non sono segreti, quindi possiamo scriverli qui per il test.
+                    def hardcodedEndpoint = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+                    def hardcodedDeployment = "gpt-4"
 
-                            // Controlla il codice di uscita
-                            if (planOutput.status != 0) {
-                                // Se il codice è diverso da 0, c'è stato un errore.
-                                // Lanciamo un'eccezione manualmente per attivare il blocco catch.
-                                error("Terraform plan failed with status code: ${planOutput.status}")
-                            } else {
-                                // Se tutto va bene, stampa l'output
-                                echo "Terraform plan completed successfully."
-                                echo planOutput.stdout
-                            }
+                    // Carichiamo solo la credenziale di test che siamo sicuri sia corretta
+                    withCredentials([
+                        string(credentialsId: 'ai-key-debug-test', variable: 'debugApiKey')
+                    ]) {
+                        
+                        echo "--- Test 1: Chiamata con httpRequest (il nostro metodo attuale) ---"
+                        try {
+                            def testResponse = callAzureOpenAI(hardcodedEndpoint, debugApiKey, hardcodedDeployment, "Test 1: Chiamata con httpRequest")
+                            echo "RISPOSTA DA httpRequest: ${testResponse}"
+                            // Se arriviamo qui, il problema era al 100% nella VECCHIA credenziale o nel suo ID.
+                            
+                        } catch (e) {
+                            echo "FALLIMENTO Test 1: httpRequest ha fallito anche con la credenziale di test."
+                            echo "Errore: ${e.toString()}"
                         }
-                    } catch (e) {
-                        // --- AI per Troubleshooting degli Errori di Deployment ---
-                        // Ora il blocco catch verrà eseguito correttamente
 
-                        // Cattura l'intero log della build
-                        def errorLogs = bat(returnStdout: true, script: 'type "%JENKINS_HOME%\\jobs\\%JOB_NAME%\\builds\\%BUILD_NUMBER%\\log"').trim()
-
-                        def troubleshootingPrompt = """
-                            Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
-                            Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
-                            Log di errore del deployment:
-                            ```
-                            ${errorLogs}
-                            ```
-                            Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
-                        """.trim()
-                        withCredentials([
-                            string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AI_ENDPOINT'),
-                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),
-                            string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'AI_MODEL_DEPLOYMENT_NAME')
-                        ]) {
-                            // La chiamata alla tua funzione AI
-                            def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
-
-                            echo '---------------------------------------'
-                            echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
-                            echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
-                            echo "Log catturato per l'analisi:"
-                            echo errorLogs
-                            echo '---------------------------------------'
+                        echo "\n--- Test 2: Chiamata con curl dall'agente Jenkins (il tuo metodo funzionante) ---"
+                        // Usiamo withEnv per passare la chiave a curl in modo sicuro come variabile d'ambiente
+                        withEnv(["API_KEY_ENV_VAR=${debugApiKey}"]) {
+                            // Costruiamo il comando curl per Windows
+                            def curlCommand = """
+                                curl -v "${hardcodedEndpoint}/openai/deployments/${hardcodedDeployment}/chat/completions?api-version=2024-02-01" ^
+                                -H "Content-Type: application/json" ^
+                                -H "api-key: %API_KEY_ENV_VAR%" ^
+                                -d "{\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Test 2: Chiamata con curl dall'agente Jenkins!\\\"}]}"
+                            """
+                            def curlResult = bat(returnStdout: true, returnStatus: true, script: curlCommand)
+                            echo "Risultato del curl dall'agente:"
+                            echo "Status Code (uscita comando): ${curlResult.status}"
+                            echo "Output (stdout): ${curlResult.stdout}"
                         }
-                        error 'Deployment fallito. Vedi i suggerimenti AI per il troubleshooting.'
-
                     }
+                    // Facciamo fallire lo stage per poter analizzare i log con calma
+                    error("Fine del test di debug. Analizza i log qui sopra per la diagnosi.")
                 }
             }
         }
-        stage('Trivy Full Severity Scan') {
-            steps {
-                script {
-                    echo "Esecuzione Trivy su tutti i livelli di severità: LOW, MEDIUM, HIGH, CRITICAL"
+        // stage('Terraform PlanAI') {
+        //     steps {
+        //         script {
+        //             // Definisci una variabile per lo stato del comando
+        //             def planStatus
 
-                    def trivyOutput = bat(returnStdout: true, script: 'trivy config --format table --severity LOW,MEDIUM,HIGH,CRITICAL .').trim()
+        //             try {
+        //                 withCredentials([
+        //                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+        //                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+        //                     string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+        //                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+        //                 ]) {
+        //                     // Esegui il comando e cattura l'output e lo stato di uscita
+        //                     def planOutput = bat(script: 'terraform plan -no-color -out=tfplan.binary', returnStdout: true, returnStatus: true)
 
-                    echo "---------------------------------------"
-                    echo "Risultato completo della scansione Trivy:\n${trivyOutput}"
-                    echo "---------------------------------------"
-                }
-            }
-        }
+        //                     // Controlla il codice di uscita
+        //                     if (planOutput.status != 0) {
+        //                         // Se il codice è diverso da 0, c'è stato un errore.
+        //                         // Lanciamo un'eccezione manualmente per attivare il blocco catch.
+        //                         error("Terraform plan failed with status code: ${planOutput.status}")
+        //                     } else {
+        //                         // Se tutto va bene, stampa l'output
+        //                         echo "Terraform plan completed successfully."
+        //                         echo planOutput.stdout
+        //                     }
+        //                 }
+        //             } catch (e) {
+        //                 // --- AI per Troubleshooting degli Errori di Deployment ---
+        //                 // Ora il blocco catch verrà eseguito correttamente
+
+        //                 // Cattura l'intero log della build
+        //                 def errorLogs = bat(returnStdout: true, script: 'type "%JENKINS_HOME%\\jobs\\%JOB_NAME%\\builds\\%BUILD_NUMBER%\\log"').trim()
+
+        //                 def troubleshootingPrompt = """
+        //                     Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
+        //                     Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
+        //                     Log di errore del deployment:
+        //                     ```
+        //                     ${errorLogs}
+        //                     ```
+        //                     Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
+        //                 """.trim()
+        //                 withCredentials([
+        //                     string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AI_ENDPOINT'),
+        //                     string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),
+        //                     string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'AI_MODEL_DEPLOYMENT_NAME')
+        //                 ]) {
+        //                     // La chiamata alla tua funzione AI
+        //                     def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+
+        //                     echo '---------------------------------------'
+        //                     echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
+        //                     echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
+        //                     echo "Log catturato per l'analisi:"
+        //                     echo errorLogs
+        //                     echo '---------------------------------------'
+        //                 }
+        //                 error 'Deployment fallito. Vedi i suggerimenti AI per il troubleshooting.'
+
+        //             }
+        //         }
+        //     }
+        // }
+        // stage('Trivy Full Severity Scan') {
+        //     steps {
+        //         script {
+        //             echo "Esecuzione Trivy su tutti i livelli di severità: LOW, MEDIUM, HIGH, CRITICAL"
+
+        //             def trivyOutput = bat(returnStdout: true, script: 'trivy config --format table --severity LOW,MEDIUM,HIGH,CRITICAL .').trim()
+
+        //             echo "---------------------------------------"
+        //             echo "Risultato completo della scansione Trivy:\n${trivyOutput}"
+        //             echo "---------------------------------------"
+        //         }
+        //     }
+        // }
 
         
         stage('Approval for Deployment') {
