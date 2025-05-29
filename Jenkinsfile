@@ -122,12 +122,12 @@ pipeline {
                             Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
                         """.trim()
                         withCredentials([
-                            string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AZURE_OPENAI_ENDPOINT'),
-                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AZURE_OPENAI_API_KEY'),
-                            string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'OPENAI_MODEL_DEPLOYMENT_NAME')
+                            string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AI_ENDPOINT'),
+                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),
+                            string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'AI_MODEL_DEPLOYMENT_NAME')
                         ]) {
                             // La chiamata alla tua funzione AI
-                            def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+                            def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
                             echo "---------------------------------------"
                             echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
