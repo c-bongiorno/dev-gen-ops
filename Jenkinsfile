@@ -120,7 +120,7 @@ pipeline {
                             ${errorLogs}
                             ```
                             Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
-                        """
+                        """.trim()
                         withCredentials([
                             string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AZURE_OPENAI_ENDPOINT'),
                             string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AZURE_OPENAI_API_KEY'),
@@ -162,63 +162,62 @@ pipeline {
                 input message: 'Approvazione necessaria per il deployment su Azure. Continuare?', ok: 'Deploy'
             }
         }
-        // stage('Terraform Apply') {
-            // steps {
-                // withCredentials([
-                    // string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-                    // string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-                    // string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                    // string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-                // ]) {
-                    // script {
-                        // bat 'terraform apply -no-color -auto-approve tfplan.binary'
-                    // }
-                // }
-// 
-            // }
-        // }
         stage('Terraform Apply') {
             steps {
-                script {
-                    try {
-                        withCredentials([
-                            string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-                            string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-                            string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-                            string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-                        ]) {
-                            script {
-                            bat 'terraform apply -no-color -auto-approve tfplan.binary'
-                            echo "Deployment su Azure completato con successo!"
-                        }
-                    }                        
-                    } catch (e) {
-                        // --- AI per Troubleshooting degli Errori di Deployment ---
-                        def errorLogs = sh(returnStdout: true, script: "cat \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim() // Cattura l'intero log della build
-                        // Estrai solo le linee di errore rilevanti se il log è molto grande
-                        // def relevantErrorLogs = errorLogs.split('\n').findAll { it.contains('Error') || it.contains('Failed') }.join('\n')
-
-                        def troubleshootingPrompt = """
-                            Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
-                            Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
-
-                            Log di errore del deployment:
-                            ```
-                            ${errorLogs}
-                            ```
-
-                            Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
-                        """
-                        def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
-
-                        echo "---------------------------------------"
-                        echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
-                        echo "---------------------------------------"
-                        error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
+                withCredentials([
+                    string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                    string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                    string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                    string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                ]) {
+                    script {
+                        bat 'terraform apply -no-color -auto-approve tfplan.binary'
                     }
                 }
             }
         }
+        // stage('Terraform Apply') {
+            // steps {
+                // script {
+                    // try {
+                        // withCredentials([
+                            // string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                            // string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                            // string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                            // string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                        // ]) {
+                            // script {
+                            // bat 'terraform apply -no-color -auto-approve tfplan.binary'
+                            // echo "Deployment su Azure completato con successo!"
+                        // }
+                    // }                        
+                    // } catch (e) {
+                        //--- AI per Troubleshooting degli Errori di Deployment ---
+                        // def errorLogs = sh(returnStdout: true, script: "cat \${JENKINS_HOME}/jobs/${env.JOB_NAME}/builds/${env.BUILD_NUMBER}/log").trim() // Cattura l'intero log della build
+                        //Estrai solo le linee di errore rilevanti se il log è molto grande
+                        //def relevantErrorLogs = errorLogs.split('\n').findAll { it.contains('Error') || it.contains('Failed') }.join('\n')
+
+                        // def troubleshootingPrompt = """
+                            // Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
+                            // Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
+
+                            // Log di errore del deployment:
+                            // ```
+                            // ${errorLogs}
+                            // ```
+
+                            // Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
+                        // """
+                        // def aiTroubleshooting = callAzureOpenAI(AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY, OPENAI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+
+                        // echo "---------------------------------------"
+                        // echo "AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}"
+                        // echo "---------------------------------------"
+                        // error "Deployment fallito. Vedi i suggerimenti AI per il troubleshooting."
+                    // }
+                // }
+            // }
+        // }
     }
 }
 
@@ -244,7 +243,6 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
         def response = httpRequest(
             url: fullUrl,
             method: 'POST',
-            httpMode: 'HTTP',
             customHeaders: [
                 [name: 'Content-Type', value: 'application/json'],
                 [name: 'Api-Key', value: apiKey]
