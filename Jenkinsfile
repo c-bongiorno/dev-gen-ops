@@ -152,8 +152,7 @@ pipeline {
                             // La chiamata alla tua funzione AI
                             def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
 
-                            def formattedResponse = formatAIResponse(aiTroubleshooting)
-                            echo formattedResponse
+                            displayFormattedAIResponse(aiTroubleshooting)
 
                             // echo '---------------------------------------'
                             // echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
@@ -274,20 +273,63 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
     }
 }
 
-// Aggiungi questa funzione per formattare l'output
-def formatAIResponse(String response) {
-    def separator = "=" * 80
-    def subSeparator = "-" * 40
+def displayFormattedAIResponse(String aiResponse) {
+    // ANSI color codes per Jenkins console
+    def RED = '\u001B[31m'
+    def GREEN = '\u001B[32m'
+    def YELLOW = '\u001B[33m'
+    def BLUE = '\u001B[34m'
+    def PURPLE = '\u001B[35m'
+    def CYAN = '\u001B[36m'
+    def WHITE = '\u001B[37m'
+    def BOLD = '\u001B[1m'
+    def RESET = '\u001B[0m'
     
-    return """
-${separator}
-🤖 AI TROUBLESHOOTING ANALYSIS
-${separator}
-
-${response}
-
-${separator}
-END OF AI ANALYSIS
-${separator}
-    """.trim()
+    // Parsing e formattazione intelligente della risposta AI
+    def lines = aiResponse.split('\n')
+    def formattedLines = []
+    
+    lines.each { line ->
+        def trimmedLine = line.trim()
+        if (trimmedLine.toLowerCase().startsWith('problema:')) {
+            formattedLines.add("${RED}${BOLD}🚨 ${trimmedLine}${RESET}")
+        } else if (trimmedLine.toLowerCase().startsWith('causa probabile:')) {
+            formattedLines.add("${YELLOW}${BOLD}🔍 ${trimmedLine}${RESET}")
+        } else if (trimmedLine.toLowerCase().startsWith('soluzione:')) {
+            formattedLines.add("${GREEN}${BOLD}💡 ${trimmedLine}${RESET}")
+        } else if (trimmedLine.toLowerCase().contains('errore') || trimmedLine.toLowerCase().contains('error')) {
+            formattedLines.add("${RED}   ${trimmedLine}${RESET}")
+        } else if (trimmedLine.toLowerCase().contains('suggerimento') || trimmedLine.toLowerCase().contains('raccomandazione')) {
+            formattedLines.add("${CYAN}   ${trimmedLine}${RESET}")
+        } else if (!trimmedLine.isEmpty()) {
+            formattedLines.add("   ${trimmedLine}")
+        }
+    }
+    
+    def header = """
+${BLUE}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗
+║                           🤖 AI TROUBLESHOOTING ANALYSIS                        ║
+╚════════════════════════════════════════════════════════════════════════════════╝${RESET}
+"""
+    
+    def footer = """
+${BLUE}${BOLD}╔════════════════════════════════════════════════════════════════════════════════╗
+║                                END OF AI ANALYSIS                               ║
+╚════════════════════════════════════════════════════════════════════════════════╝${RESET}
+"""
+    
+    echo header
+    formattedLines.each { line ->
+        echo line
+    }
+    echo footer
+    
+    // Aggiungi anche un summary conciso
+    echo """
+${PURPLE}${BOLD}📝 QUICK ACTIONS:${RESET}
+${WHITE}1. Check infrastructure permissions in Azure${RESET}
+${WHITE}2. Verify Terraform state consistency${RESET}  
+${WHITE}3. Review resource naming conflicts${RESET}
+${WHITE}4. Validate Azure resource quotas${RESET}
+"""
 }
