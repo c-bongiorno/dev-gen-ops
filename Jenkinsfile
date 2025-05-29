@@ -221,55 +221,101 @@ pipeline {
     }
 }
 
-// Rimuoviamo @NonCPS perché usiamo step della pipeline (httpRequest, readJSON)
-def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String prompt) {
-    // L'URL corretto per il modello Chat Completions.
-    // Assicurati che 'endpoint' sia solo il dominio base (es. https://tuo-endpoint.openai.azure.com)
-    def fullUrl = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+//Rimuoviamo @NonCPS perché usiamo step della pipeline (httpRequest, readJSON)
+// def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String prompt) {
+    //L'URL corretto per il modello Chat Completions.
+    //Assicurati che 'endpoint' sia solo il dominio base (es. https://tuo-endpoint.openai.azure.com)
+    // def fullUrl = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+// 
+    //Usiamo le utility Groovy per creare un corpo JSON valido e sicuro.
+    //Questo è molto più affidabile della concatenazione di stringhe manuale.
+    // def requestBody = new groovy.json.JsonOutput().toJson([
+        // messages: [
+            // [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
+            // [role: "user", content: prompt]
+        // ],
+        // max_tokens: 1500,
+        // temperature: 0.3
+    // ])
+// 
+    // try {
+        //Eseguiamo la chiamata con il plugin httpRequest, che è platform-independent
+        // def response = httpRequest(
+            // url: fullUrl,
+            //httpmethod: 'POST',
+            // customHeaders: [
+                // [name: 'Content-Type', value: 'application/json'],
+                // [name: 'Api-Key', value: apiKey]
+            // ],
+            // requestBody: requestBody,
+            // quiet: true // Evita di stampare l'intera risposta nel log di console
+        // )
+// 
+        //Verifichiamo che la chiamata sia andata a buon fine (status 2xx)
+        // if (response.status == 200) {
+            //Usiamo lo step 'readJSON' per parsare la risposta testuale
+            // def jsonResponse = readJSON text: response.content
+            // 
+            //Estraiamo il contenuto del messaggio dalla risposta
+            // if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
+                // return jsonResponse.choices[0].message.content
+            // } else {
+                // echo "Errore: la risposta JSON da Azure OpenAI non ha il formato atteso. Risposta: ${response.content}"
+                // return "Errore AI: Impossibile analizzare il contenuto della risposta."
+            // }
+        // } else {
+            // echo "Errore HTTP dalla chiamata ad Azure OpenAI. Status: ${response.status}, Risposta: ${response.content}"
+            // return "Errore AI: La richiesta è fallita con codice di stato ${response.status}."
+        // }
+// 
+    // } catch (Exception e) {
+        // echo "Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}"
+        // return "Errore AI: Eccezione durante la chiamata API."
+    // }
+// }
 
-    // Usiamo le utility Groovy per creare un corpo JSON valido e sicuro.
-    // Questo è molto più affidabile della concatenazione di stringhe manuale.
+// Aggiungi questi echo all'inizio della funzione
+def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String promptText) {
+    echo "--- INIZIO DEBUG DENTRO callAzureOpenAI ---"
+    echo "Endpoint ricevuto: [${endpoint}]"
+    echo "Nome Deployment ricevuto: [${deploymentName}]"
+    
+    // Per sicurezza, non stampiamo l'intera chiave API. Stampiamo solo un indicatore per vedere se è presente.
+    if (apiKey) {
+        echo "Chiave API: Presente (Lunghezza: ${apiKey.length()})"
+    } else {
+        echo "Chiave API: NON PRESENTE O VUOTA!"
+    }
+
+    def fullUrl = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+    echo "URL completo costruito: [${fullUrl}]"
+    
     def requestBody = new groovy.json.JsonOutput().toJson([
         messages: [
             [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
-            [role: "user", content: prompt]
+            [role: "user", content: promptText]
         ],
         max_tokens: 1500,
         temperature: 0.3
     ])
+    
+    // Stampiamo anche il corpo della richiesta per assicurarci che sia un JSON valido
+    echo "Corpo della richiesta JSON: ${requestBody}"
+    echo "--- FINE DEBUG ---"
 
     try {
-        // Eseguiamo la chiamata con il plugin httpRequest, che è platform-independent
+        // Il resto della funzione rimane invariato...
         def response = httpRequest(
             url: fullUrl,
-            //httpmethod: 'POST',
             customHeaders: [
                 [name: 'Content-Type', value: 'application/json'],
                 [name: 'Api-Key', value: apiKey]
             ],
             requestBody: requestBody,
-            quiet: true // Evita di stampare l'intera risposta nel log di console
+            quiet: true
         )
-
-        // Verifichiamo che la chiamata sia andata a buon fine (status 2xx)
-        if (response.status == 200) {
-            // Usiamo lo step 'readJSON' per parsare la risposta testuale
-            def jsonResponse = readJSON text: response.content
-            
-            // Estraiamo il contenuto del messaggio dalla risposta
-            if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
-                return jsonResponse.choices[0].message.content
-            } else {
-                echo "Errore: la risposta JSON da Azure OpenAI non ha il formato atteso. Risposta: ${response.content}"
-                return "Errore AI: Impossibile analizzare il contenuto della risposta."
-            }
-        } else {
-            echo "Errore HTTP dalla chiamata ad Azure OpenAI. Status: ${response.status}, Risposta: ${response.content}"
-            return "Errore AI: La richiesta è fallita con codice di stato ${response.status}."
-        }
-
+        // ...
     } catch (Exception e) {
-        echo "Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}"
-        return "Errore AI: Eccezione durante la chiamata API."
+        // ...
     }
 }
