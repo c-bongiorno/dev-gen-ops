@@ -242,7 +242,7 @@ def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, Strin
         // Eseguiamo la chiamata con il plugin httpRequest, che è platform-independent
         def response = httpRequest(
             url: fullUrl,
-            method: 'POST',
+            httpmethod: 'POST',
             customHeaders: [
                 [name: 'Content-Type', value: 'application/json'],
                 [name: 'Api-Key', value: apiKey]
