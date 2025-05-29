@@ -269,72 +269,73 @@ pipeline {
     }
 }
 
-// FUNZIONE AGGIORNATA CON CONTROLLO SU RAWRESPONSETEXT
-def callAzureOpenAI_with_curl(String endpoint, String apiKey, String deploymentName, String promptText) {
+// FUNZIONE FINALE E ROBUSTA CHE USA CURL (BASATA SUL TEST 2 FUNZIONANTE)
+def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String promptText) {
+    // Usiamo un blocco try/finally per assicurarci di cancellare sempre il file temporaneo
     try {
+        // 1. Costruiamo il corpo della richiesta JSON in modo sicuro
         def requestBody = new groovy.json.JsonOutput().toJson([
             messages: [
                 [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
-                [role: "user", content: promptText]
+                [role: "user", content: promptText] // promptText è già stato trimmato prima di chiamare la funzione
             ],
             max_tokens: 1500,
             temperature: 0.3
         ])
 
+        // 2. Scriviamo il corpo su un file temporaneo. Questo è il modo più pulito e sicuro.
         writeFile(file: 'payload.json', text: requestBody, encoding: 'UTF-8')
 
+        // 3. Passiamo la chiave API come variabile d'ambiente per non esporla nel comando
         withEnv(["API_KEY_ENV_VAR=${apiKey}"]) {
+            // 4. Costruiamo il comando curl per Windows.
+            //    -s = modalità silenziosa (non mostra la barra di progresso)
+            //    -d @payload.json = legge i dati per il corpo della richiesta dal file specificato
+            //    Assicurati che il percorso dell'URL e l'api-version siano quelli che funzionano per te.
             def curlCommand = """
-                curl -s -X POST "${endpoint}/openai/deployments/${deploymentName}/chat/completions?api-version=2024-02-01" ^
+                curl -s -X POST "${endpoint}" ^
                 -H "Content-Type: application/json" ^
                 -H "api-key: %API_KEY_ENV_VAR%" ^
                 -d @payload.json
             """
-            
-            def fullBatScript = "@echo off\n${curlCommand}"
-            // Usiamo l'operatore di safe navigation '?.' per trim(), così se bat restituisce null, rawResponseText diventa null.
-            def rawResponseText = bat(script: fullBatScript, returnStdout: true)?.trim() 
 
-            // NUOVA MODIFICA: Controllo robusto se rawResponseText è valido
-            if (!rawResponseText) { // In Groovy, questo controlla se è null o una stringa vuota
-                echo "Errore: La risposta grezza dal comando bat è vuota o nulla."
-                return "Errore AI: Nessuna risposta dal server (output comando bat/curl vuoto o nullo)."
-            }
-            // FINE NUOVA MODIFICA
+            echo "Eseguo il comando curl per Azure OpenAI..."
+            // 5. Eseguiamo il comando e catturiamo solo l'output di testo (stdout)
+            def responseText = bat(script: curlCommand, returnStdout: true).trim()
 
-            def jsonStartIndex = rawResponseText.indexOf('{') // Ora questa riga è più sicura
-            def actualJsonResponseText = ""
-            if (jsonStartIndex != -1) {
-                actualJsonResponseText = rawResponseText.substring(jsonStartIndex)
-            } else {
-                echo "Errore: Impossibile trovare l'inizio del JSON nella risposta di curl."
-                echo "Testo grezzo ricevuto (dopo trim e controllo null/empty): ${rawResponseText}"
-                return "Errore AI: Risposta dal server non riconosciuta come JSON."
+            // Controlliamo se l'output è vuoto (potrebbe indicare un errore a livello di curl non catturato)
+            if (responseText.isEmpty()) {
+                echo "Errore: Il comando curl è stato eseguito ma non ha restituito alcun output."
+                return "Errore AI: Nessuna risposta dal server (output curl vuoto)."
             }
 
+            // 6. Analizziamo la risposta JSON e restituiamo il contenuto utile
+            // È importante che la risposta sia un JSON valido, altrimenti readJSON fallirà
             try {
-                def jsonResponse = readJSON text: actualJsonResponseText
-                
+                def jsonResponse = readJSON text: responseText
                 if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
                     return jsonResponse.choices[0].message.content
-                } else if (jsonResponse.error) {
+                } else if (jsonResponse.error) { // Gestiamo il caso in cui Azure risponde con un JSON di errore
                     echo "Errore da Azure API: Code=${jsonResponse.error.code}, Message=${jsonResponse.error.message}"
                     return "Errore AI: ${jsonResponse.error.message} (Code: ${jsonResponse.error.code})"
                 } else {
-                    echo "Errore: la risposta JSON da curl non ha il formato atteso. Risposta JSON pulita: ${actualJsonResponseText}"
+                    echo "Errore: la risposta JSON da curl non ha il formato atteso. Risposta: ${responseText}"
                     return "Errore AI: Impossibile analizzare il contenuto della risposta."
                 }
             } catch (jsonError) {
                 echo "Errore durante il parsing del JSON dalla risposta di curl: ${jsonError.toString()}"
-                echo "Testo JSON che si è tentato di parsare: ${actualJsonResponseText}"
+                echo "Testo della risposta ricevuto: ${responseText}"
                 return "Errore AI: Risposta dal server non valida o non in formato JSON."
             }
         }
     } catch (e) {
+        // Questo blocco cattura errori nell'esecuzione dello script stesso (es. writeFile fallisce)
         echo "Una eccezione è avvenuta durante l'esecuzione di callAzureOpenAI_with_curl: ${e.toString()}"
         return "Errore AI: Eccezione interna durante l'elaborazione della chiamata."
     } finally {
+        // 7. Pulizia finale: questo blocco viene eseguito sempre,
+        //    garantendo che il nostro file temporaneo non rimanga in giro.
         echo 'Pulizia del file temporaneo payload.json...'
-        deleteDir()
+        deleteDir() // Cancella tutti i file nella directory corrente (inclusi payload.json se esiste)
     }
 }
