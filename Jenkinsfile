@@ -78,118 +78,118 @@ pipeline {
                     // 
             // }
         // }
-        stage('!!! DEBUG SICURO AZURE AI CALL !!!') {
-            steps {
-                script {
-                    echo '--- ESEGUO TEST DI LABORATORIO SICURO ---'
-
-                    // Usa i valori non-segreti del tuo curl che funziona.
-                    // Questi non sono segreti, quindi possiamo scriverli qui per il test.
-                    def hardcodedEndpoint = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
-                    def hardcodedDeployment = "gpt-4"
-
-                    // Carichiamo solo la credenziale di test che siamo sicuri sia corretta
-                    withCredentials([
-                        string(credentialsId: 'ai-key-debug-test', variable: 'debugApiKey')
-                    ]) {
-                        
-                        echo "--- Test 1: Chiamata con httpRequest (il nostro metodo attuale) ---"
-                        try {
-                            def testResponse = callAzureOpenAI(hardcodedEndpoint, debugApiKey, hardcodedDeployment, "Test 1: Chiamata con httpRequest")
-                            echo "RISPOSTA DA httpRequest: ${testResponse}"
-                            // Se arriviamo qui, il problema era al 100% nella VECCHIA credenziale o nel suo ID.
-                            
-                        } catch (e) {
-                            echo "FALLIMENTO Test 1: httpRequest ha fallito anche con la credenziale di test."
-                            echo "Errore: ${e.toString()}"
-                        }
-
-                        echo "\n--- Test 2: Chiamata con curl dall'agente Jenkins (il tuo metodo funzionante) ---"
-                        // Usiamo withEnv per passare la chiave a curl in modo sicuro come variabile d'ambiente
-                        withEnv(["API_KEY_ENV_VAR=${debugApiKey}"]) {
-                            // Costruiamo il comando curl per Windows
-                            def curlCommand = """
-                                curl -v "${hardcodedEndpoint}" ^
-                                -H "Content-Type: application/json" ^
-                                -H "api-key: %API_KEY_ENV_VAR%" ^
-                                -d "{\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Test 2: Chiamata con curl dall'agente Jenkins!\\\"}]}"
-                            """
-                            def curlExitCode = bat(script: curlCommand, returnStatus: true)
-                            echo "Codice di uscita del comando curl: ${curlExitCode}"
-                            if (curlExitCode == 0) {
-                                echo "SUCCESSO: Il comando curl è terminato correttamente."
-                            }
-                        }
-                    }
-                    // Facciamo fallire lo stage per poter analizzare i log con calma
-                    error("Fine del test di debug. Analizza i log qui sopra per la diagnosi.")
-                }
-            }
-        }
-        // stage('Terraform PlanAI') {
+        // stage('!!! DEBUG SICURO AZURE AI CALL !!!') {
         //     steps {
         //         script {
-        //             // Definisci una variabile per lo stato del comando
-        //             def planStatus
+        //             echo '--- ESEGUO TEST DI LABORATORIO SICURO ---'
 
-        //             try {
-        //                 withCredentials([
-        //                     string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
-        //                     string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
-        //                     string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
-        //                     string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
-        //                 ]) {
-        //                     // Esegui il comando e cattura l'output e lo stato di uscita
-        //                     def planOutput = bat(script: 'terraform plan -no-color -out=tfplan.binary', returnStdout: true, returnStatus: true)
+        //             // Usa i valori non-segreti del tuo curl che funziona.
+        //             // Questi non sono segreti, quindi possiamo scriverli qui per il test.
+        //             def hardcodedEndpoint = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
+        //             def hardcodedDeployment = "gpt-4"
 
-        //                     // Controlla il codice di uscita
-        //                     if (planOutput.status != 0) {
-        //                         // Se il codice è diverso da 0, c'è stato un errore.
-        //                         // Lanciamo un'eccezione manualmente per attivare il blocco catch.
-        //                         error("Terraform plan failed with status code: ${planOutput.status}")
-        //                     } else {
-        //                         // Se tutto va bene, stampa l'output
-        //                         echo "Terraform plan completed successfully."
-        //                         echo planOutput.stdout
+        //             // Carichiamo solo la credenziale di test che siamo sicuri sia corretta
+        //             withCredentials([
+        //                 string(credentialsId: 'ai-key-debug-test', variable: 'debugApiKey')
+        //             ]) {
+                        
+        //                 echo "--- Test 1: Chiamata con httpRequest (il nostro metodo attuale) ---"
+        //                 try {
+        //                     def testResponse = callAzureOpenAI(hardcodedEndpoint, debugApiKey, hardcodedDeployment, "Test 1: Chiamata con httpRequest")
+        //                     echo "RISPOSTA DA httpRequest: ${testResponse}"
+        //                     // Se arriviamo qui, il problema era al 100% nella VECCHIA credenziale o nel suo ID.
+                            
+        //                 } catch (e) {
+        //                     echo "FALLIMENTO Test 1: httpRequest ha fallito anche con la credenziale di test."
+        //                     echo "Errore: ${e.toString()}"
+        //                 }
+
+        //                 echo "\n--- Test 2: Chiamata con curl dall'agente Jenkins (il tuo metodo funzionante) ---"
+        //                 // Usiamo withEnv per passare la chiave a curl in modo sicuro come variabile d'ambiente
+        //                 withEnv(["API_KEY_ENV_VAR=${debugApiKey}"]) {
+        //                     // Costruiamo il comando curl per Windows
+        //                     def curlCommand = """
+        //                         curl -v "${hardcodedEndpoint}" ^
+        //                         -H "Content-Type: application/json" ^
+        //                         -H "api-key: %API_KEY_ENV_VAR%" ^
+        //                         -d "{\\\"messages\\\":[{\\\"role\\\":\\\"user\\\",\\\"content\\\":\\\"Test 2: Chiamata con curl dall'agente Jenkins!\\\"}]}"
+        //                     """
+        //                     def curlExitCode = bat(script: curlCommand, returnStatus: true)
+        //                     echo "Codice di uscita del comando curl: ${curlExitCode}"
+        //                     if (curlExitCode == 0) {
+        //                         echo "SUCCESSO: Il comando curl è terminato correttamente."
         //                     }
         //                 }
-        //             } catch (e) {
-        //                 // --- AI per Troubleshooting degli Errori di Deployment ---
-        //                 // Ora il blocco catch verrà eseguito correttamente
-
-        //                 // Cattura l'intero log della build
-        //                 def errorLogs = bat(returnStdout: true, script: 'type "%JENKINS_HOME%\\jobs\\%JOB_NAME%\\builds\\%BUILD_NUMBER%\\log"').trim()
-
-        //                 def troubleshootingPrompt = """
-        //                     Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
-        //                     Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
-        //                     Log di errore del deployment:
-        //                     ```
-        //                     ${errorLogs}
-        //                     ```
-        //                     Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
-        //                 """.trim()
-        //                 withCredentials([
-        //                     string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AI_ENDPOINT'),
-        //                     string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),
-        //                     string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'AI_MODEL_DEPLOYMENT_NAME')
-        //                 ]) {
-        //                     // La chiamata alla tua funzione AI
-        //                     def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
-
-        //                     echo '---------------------------------------'
-        //                     echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
-        //                     echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
-        //                     echo "Log catturato per l'analisi:"
-        //                     echo errorLogs
-        //                     echo '---------------------------------------'
-        //                 }
-        //                 error 'Deployment fallito. Vedi i suggerimenti AI per il troubleshooting.'
-
         //             }
+        //             // Facciamo fallire lo stage per poter analizzare i log con calma
+        //             error("Fine del test di debug. Analizza i log qui sopra per la diagnosi.")
         //         }
         //     }
         // }
+        stage('Terraform PlanAI') {
+            steps {
+                script {
+                    // Definisci una variabile per lo stato del comando
+                    def planStatus
+
+                    try {
+                        withCredentials([
+                            string(credentialsId: 'AZURE_CLIENT_ID', variable: 'ARM_CLIENT_ID'),
+                            string(credentialsId: 'AZURE_CLIENT_SECRET', variable: 'ARM_CLIENT_SECRET'),
+                            string(credentialsId: 'AZURE_TENANT_ID', variable: 'ARM_TENANT_ID'),
+                            string(credentialsId: 'AZURE_SUBSCRIPTION_ID', variable: 'ARM_SUBSCRIPTION_ID')
+                        ]) {
+                            // Esegui il comando e cattura l'output e lo stato di uscita
+                            def planOutput = bat(script: 'terraform plan -no-color -out=tfplan.binary', returnStdout: true, returnStatus: true)
+
+                            // Controlla il codice di uscita
+                            if (planOutput.status != 0) {
+                                // Se il codice è diverso da 0, c'è stato un errore.
+                                // Lanciamo un'eccezione manualmente per attivare il blocco catch.
+                                error("Terraform plan failed with status code: ${planOutput.status}")
+                            } else {
+                                // Se tutto va bene, stampa l'output
+                                echo "Terraform plan completed successfully."
+                                echo planOutput.stdout
+                            }
+                        }
+                    } catch (e) {
+                        // --- AI per Troubleshooting degli Errori di Deployment ---
+                        // Ora il blocco catch verrà eseguito correttamente
+
+                        // Cattura l'intero log della build
+                        def errorLogs = bat(returnStdout: true, script: 'type "%JENKINS_HOME%\\jobs\\%JOB_NAME%\\builds\\%BUILD_NUMBER%\\log"').trim()
+
+                        def troubleshootingPrompt = """
+                            Sei un esperto ingegnere DevOps specializzato in Azure e Terraform.
+                            Il deployment Terraform su Azure è fallito con i seguenti errori. Analizza i log e suggerisci possibili cause e azioni per il troubleshooting.
+                            Log di errore del deployment:
+                            ```
+                            ${errorLogs}
+                            ```
+                            Formato: 'Problema: [Descrizione]. Causa Probabile: [Causa]. Soluzione: [Passi di troubleshooting].'
+                        """.trim()
+                        withCredentials([
+                            string(credentialsId: 'AZURE_OPENAI_ENDPOINT', variable: 'AI_ENDPOINT'),
+                            string(credentialsId: 'AZURE_OPENAI_API_KEY', variable: 'AI_API_KEY'),
+                            string(credentialsId: 'OPENAI_MODEL_DEPLOYMENT_NAME', variable: 'AI_MODEL_DEPLOYMENT_NAME')
+                        ]) {
+                            // La chiamata alla tua funzione AI
+                            def aiTroubleshooting = callAzureOpenAI(AI_ENDPOINT, AI_API_KEY, AI_MODEL_DEPLOYMENT_NAME, troubleshootingPrompt)
+
+                            echo '---------------------------------------'
+                            echo 'AI-Powered Troubleshooting Suggestions:\n${aiTroubleshooting}'
+                            echo "AI-Powered Troubleshooting Suggestions:\n(Simulazione - qui andrebbe l'output della tua AI)"
+                            echo "Log catturato per l'analisi:"
+                            echo errorLogs
+                            echo '---------------------------------------'
+                        }
+                        error 'Deployment fallito. Vedi i suggerimenti AI per il troubleshooting.'
+
+                    }
+                }
+            }
+        }
         // stage('Trivy Full Severity Scan') {
         //     steps {
         //         script {
@@ -269,55 +269,73 @@ pipeline {
     }
 }
 
-//Rimuoviamo @NonCPS perché usiamo step della pipeline (httpRequest, readJSON)
-def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String prompt) {
-    //L'URL corretto per il modello Chat Completions.
-    //Assicurati che 'endpoint' sia solo il dominio base (es. https://tuo-endpoint.openai.azure.com)
-    def fullUrl = "https://oai-dev-gen-ops-01.openai.azure.com/openai/deployments/gpt-4/chat/completions?api-version=2025-01-01-preview"
-
-    //Usiamo le utility Groovy per creare un corpo JSON valido e sicuro.
-    //Questo è molto più affidabile della concatenazione di stringhe manuale.
-    def requestBody = new groovy.json.JsonOutput().toJson([
-        messages: [
-            [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
-            [role: "user", content: prompt]
-        ],
-        max_tokens: 1500,
-        temperature: 0.3
-    ])
-
+// FUNZIONE FINALE E ROBUSTA CHE USA CURL (BASATA SUL TEST 2 FUNZIONANTE)
+def callAzureOpenAI(String endpoint, String apiKey, String deploymentName, String promptText) {
+    // Usiamo un blocco try/finally per assicurarci di cancellare sempre il file temporaneo
     try {
-        //Eseguiamo la chiamata con il plugin httpRequest, che è platform-independent
-        def response = httpRequest(
-            url: fullUrl,
-            //httpmethod: 'POST',
-            customHeaders: [
-                [name: 'Content-Type', value: 'application/json'],
-                [name: 'Api-Key', value: apiKey]
+        // 1. Costruiamo il corpo della richiesta JSON in modo sicuro
+        def requestBody = new groovy.json.JsonOutput().toJson([
+            messages: [
+                [role: "system", content: "You are a helpful and expert assistant for DevOps, Azure, and Terraform."],
+                [role: "user", content: promptText] // promptText è già stato trimmato prima di chiamare la funzione
             ],
-            requestBody: requestBody,
-            quiet: true // Evita di stampare l'intera risposta nel log di console
-        )
+            max_tokens: 1500,
+            temperature: 0.3
+        ])
 
-        //Verifichiamo che la chiamata sia andata a buon fine (status 2xx)
-        if (response.status == 200) {
-            //Usiamo lo step 'readJSON' per parsare la risposta testuale
-            def jsonResponse = readJSON text: response.content
-            
-            //Estraiamo il contenuto del messaggio dalla risposta
-            if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
-                return jsonResponse.choices[0].message.content
-            } else {
-                echo 'Errore: la risposta JSON da Azure OpenAI non ha il formato atteso. Risposta: ${response.content}'
-                return 'Errore AI: Impossibile analizzare il contenuto della risposta.'
+        // 2. Scriviamo il corpo su un file temporaneo. Questo è il modo più pulito e sicuro.
+        writeFile(file: 'payload.json', text: requestBody, encoding: 'UTF-8')
+
+        // 3. Passiamo la chiave API come variabile d'ambiente per non esporla nel comando
+        withEnv(["API_KEY_ENV_VAR=${apiKey}"]) {
+            // 4. Costruiamo il comando curl per Windows.
+            //    -s = modalità silenziosa (non mostra la barra di progresso)
+            //    -d @payload.json = legge i dati per il corpo della richiesta dal file specificato
+            //    Assicurati che il percorso dell'URL e l'api-version siano quelli che funzionano per te.
+            def curlCommand = """
+                curl -s -X POST "${endpoint}" ^
+                -H "Content-Type: application/json" ^
+                -H "api-key: %API_KEY_ENV_VAR%" ^
+                -d @payload.json
+            """
+
+            echo "Eseguo il comando curl per Azure OpenAI..."
+            // 5. Eseguiamo il comando e catturiamo solo l'output di testo (stdout)
+            def responseText = bat(script: curlCommand, returnStdout: true).trim()
+
+            // Controlliamo se l'output è vuoto (potrebbe indicare un errore a livello di curl non catturato)
+            if (responseText.isEmpty()) {
+                echo "Errore: Il comando curl è stato eseguito ma non ha restituito alcun output."
+                return "Errore AI: Nessuna risposta dal server (output curl vuoto)."
             }
-        } else {
-            echo 'Errore HTTP dalla chiamata ad Azure OpenAI. Status: ${response.status}, Risposta: ${response.content}'
-            return 'Errore AI: La richiesta è fallita con codice di stato ${response.status}.'
-        }
 
-    } catch (Exception e) {
-        echo "Una eccezione è avvenuta durante la chiamata a callAzureOpenAI: ${e.toString()}"
-        return 'Errore AI: Eccezione durante la chiamata API.'
+            // 6. Analizziamo la risposta JSON e restituiamo il contenuto utile
+            // È importante che la risposta sia un JSON valido, altrimenti readJSON fallirà
+            try {
+                def jsonResponse = readJSON text: responseText
+                if (jsonResponse.choices && jsonResponse.choices[0] && jsonResponse.choices[0].message && jsonResponse.choices[0].message.content) {
+                    return jsonResponse.choices[0].message.content
+                } else if (jsonResponse.error) { // Gestiamo il caso in cui Azure risponde con un JSON di errore
+                    echo "Errore da Azure API: Code=${jsonResponse.error.code}, Message=${jsonResponse.error.message}"
+                    return "Errore AI: ${jsonResponse.error.message} (Code: ${jsonResponse.error.code})"
+                } else {
+                    echo "Errore: la risposta JSON da curl non ha il formato atteso. Risposta: ${responseText}"
+                    return "Errore AI: Impossibile analizzare il contenuto della risposta."
+                }
+            } catch (jsonError) {
+                echo "Errore durante il parsing del JSON dalla risposta di curl: ${jsonError.toString()}"
+                echo "Testo della risposta ricevuto: ${responseText}"
+                return "Errore AI: Risposta dal server non valida o non in formato JSON."
+            }
+        }
+    } catch (e) {
+        // Questo blocco cattura errori nell'esecuzione dello script stesso (es. writeFile fallisce)
+        echo "Una eccezione è avvenuta durante l'esecuzione di callAzureOpenAI_with_curl: ${e.toString()}"
+        return "Errore AI: Eccezione interna durante l'elaborazione della chiamata."
+    } finally {
+        // 7. Pulizia finale: questo blocco viene eseguito sempre,
+        //    garantendo che il nostro file temporaneo non rimanga in giro.
+        echo 'Pulizia del file temporaneo payload.json...'
+        deleteDir() // Cancella tutti i file nella directory corrente (inclusi payload.json se esiste)
     }
 }
